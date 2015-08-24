@@ -3,6 +3,7 @@ This PHP class extension simplifies the SQL preparation and execution process, w
 
 ## Example INSERT ##
 
+<pre>
 // Include Database Class Extension //
 require_once('Database.php');
 
@@ -21,3 +22,4 @@ if ($result === false) {
   // error handling //
 }
 echo "New data inserted with the following IDs: " . implode(", ", $result);
+</pre>
