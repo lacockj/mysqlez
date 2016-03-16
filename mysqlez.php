@@ -38,7 +38,6 @@ function __construct () {
   parent::__construct($dbHost, $dbUser, $dbPass, $dbName);
   if ($this->connect_error) {
     $this->errors[] = $this->connect_errno.": ".$this->connect_error;
-    return false;
   }
 
   # Change character set to utf8 #
@@ -57,6 +56,7 @@ function __construct () {
 public function parameterized_query ( $sql, $params=null, $types=null ) {
 
   # Prepare the query. #
+  $sql = trim( $sql );
   if (! is_string($sql) ) {
     $this->errors[] = array(
       'operation' => 'mysqlez sql is_string',
@@ -102,7 +102,8 @@ public function parameterized_query ( $sql, $params=null, $types=null ) {
   }
 
   # Return results based on query type. #
-  $verb = strtoupper( preg_replace( '/^(\w+).*$/', '$1', $sql ) );
+  $verb = strtoupper( preg_replace( '/^(\w+).*$/s', '$1', $sql ) );
+  echo $verb;
   if ( $verb === "SELECT" || $verb === "DESCRIBE" ) {
 
     # Identify the columns in the SELECT result set. #
