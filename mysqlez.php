@@ -103,7 +103,6 @@ public function parameterized_query ( $sql, $params=null, $types=null ) {
 
   # Return results based on query type. #
   $verb = strtoupper( preg_replace( '/^(\w+).*$/s', '$1', $sql ) );
-  echo $verb;
   if ( $verb === "SELECT" || $verb === "DESCRIBE" ) {
 
     # Identify the columns in the SELECT result set. #
