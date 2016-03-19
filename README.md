@@ -71,6 +71,24 @@ The errors array holds one entry for each error encountered (usually only one, b
 {number} errno     - The mysqli error number.
 {string} error     - The mysqli error description.
 
+Return values vary depending on the successful query's type.
+SELECT
+- An array of rows, each row is an associative array wherein the column names are used as the array keys.
+INSERT
+- For tables with an AUTO_INCREMENT id column, the new row's id is returned.
+- Otherwise it returns true when successful.
+UPDATE
+- The number of rows updated.
+DELETE
+- The number of rows deleted.
+- All query failures return false, and the error details are saved in the errors array.
+
+The errors array holds one entry for each error encountered (usually only one, but not necessarily so). Each error includes three properties:
+
+{string} operation - The operation in which the error occurred.
+{number} errno     - The mysqli error number.
+{string} error     - The mysqli error description.
+
 
 ## SQL Builder
 
@@ -111,24 +129,6 @@ ON DUPLICATE KEY UPDATE
   `fiber`=VALUES(`fiber`)
 */
 </pre>
-
-Return values vary depending on the successful query's type.
-SELECT
-- An array of rows, each row is an associative array wherein the column names are used as the array keys.
-INSERT
-- For tables with an AUTO_INCREMENT id column, the new row's id is returned.
-- Otherwise it returns true when successful.
-UPDATE
-- The number of rows updated.
-DELETE
-- The number of rows deleted.
-- All query failures return false, and the error details are saved in the errors array.
-
-The errors array holds one entry for each error encountered (usually only one, but not necessarily so). Each error includes three properties:
-
-{string} operation - The operation in which the error occurred.
-{number} errno     - The mysqli error number.
-{string} error     - The mysqli error description.
 
 
 ## Examples
