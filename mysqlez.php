@@ -38,6 +38,7 @@ function __construct () {
   parent::__construct($dbHost, $dbUser, $dbPass, $dbName);
   if ($this->connect_error) {
     $this->errors[] = $this->connect_errno.": ".$this->connect_error;
+    return false;
   }
 
   # Change character set to utf8 #
@@ -56,7 +57,6 @@ function __construct () {
 public function parameterized_query ( $sql, $params=null, $types=null ) {
 
   # Prepare the query. #
-  $sql = trim( $sql );
   if (! is_string($sql) ) {
     $this->errors[] = array(
       'operation' => 'mysqlez sql is_string',
@@ -102,7 +102,7 @@ public function parameterized_query ( $sql, $params=null, $types=null ) {
   }
 
   # Return results based on query type. #
-  $verb = strtoupper( preg_replace( '/^(\w+).*$/s', '$1', $sql ) );
+  $verb = strtoupper( preg_replace( '/^(\w+).*$/', '$1', $sql ) );
   if ( $verb === "SELECT" || $verb === "DESCRIBE" ) {
 
     # Identify the columns in the SELECT result set. #
@@ -150,6 +150,72 @@ public function parameterized_query ( $sql, $params=null, $types=null ) {
   }
 
 }
+
+/**
+ * Create an SQL string from an array of fields.
+ * @param  {array}  $params            - The SQL query parameters.
+ * @param  {string} $params['op']      - The operation to perform, i.e. "SELECT" or "INSERT".
+ * @param  {string} $params['table']   - The table in which to perform the operation.
+ * @param  {array}  $params['columns'] - The table columns (fields) to include in the SQL.
+ * @param  {bool}   $params['update']  - SQL includes "ON DUPLICATE KEY UPDATE..." commands when set to true.
+ * @param  {bool}   $params['ignore']  - SQL includes "IGNORE" duplicate keys command in INSERT operations when set to true.
+ * @return {string} - The resulting SQL.
+ */
+public function compile_sql ($params) {
+  $op      = isset($params['op'])      ? $params['op']      : 'SELECT';
+  $table   = isset($params['table'])   ? $params['table']   : null;
+  $columns = isset($params['columns']) ? $params['columns'] : null;
+  $update  = isset($params['update'])  ? $params['update']  : false;
+  $ignore  = isset($params['ignore'])  ? $params['ignore']  : false;
+
+  if (! is_string($op)) throw new Exception("'op' must be a string.");
+  $op = strtoupper($op);
+
+  if (! $table) throw new Exception("You must provide a 'table' name.");
+
+  # Column List #
+  if (is_string($columns)) {
+    if (strpos($columns, ',')) {
+      $columns = explode(',', $columns);
+    } else {
+      $columns = array($columns);
+    }
+  }
+
+  $sql = array();
+  switch ($op) {
+    case 'INSERT':
+      if ($ignore) {
+        $sql[] = "INSERT IGNORE INTO `$table`";
+      } else {
+        $sql[] = "INSERT INTO `$table`";
+      }
+      if (! is_array($columns)) throw new Exception("Expecting array of 'columns' for INSERT operation.");
+      $sql[] = "(" . $this->compile_columns($columns) . ")";
+      $sql[] = "VALUES (" . implode(',', array_fill(0, count($columns), "?")) . ")";
+      if ($update) {
+        $sql[] = "ON DUPLICATE KEY UPDATE " . $this->compile_columns($columns, true);
+      }
+      break;
+  }
+
+  return implode(' ', $sql);
+}
+
+/**
+ * Create an SQL-compatible list of columns, optionally as a list of value updates for duplicate keys.
+ * @param  {array} $columns  - The columns.
+ * @param  {bool}  $asUpdate - When true, return in format of "`column_name`=VALUES(`column_name`)".
+ * @return {string} - The resulting SQL-compatible string.
+ */
+public function compile_columns ($columns, $asUpdate=false) {
+  if (count($columns) == 1 && $columns[0] === '*') throw new Exception("Cannot compile '*' as column list.");
+  foreach ($columns as &$column) {
+    $column = ($asUpdate) ? "`$column`=VALUES(`$column`)" : "`$column`";
+  }
+  return implode(',', $columns);
+}
+
 
 # Convenience Methods (not to include user input) #
 
