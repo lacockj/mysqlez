@@ -78,6 +78,65 @@ The errors array holds one entry for each error encountered (usually only one, b
 {number} errno     - The mysqli error number.
 {string} error     - The mysqli error description.
 
+Return values vary depending on the successful query's type.
+SELECT
+- An array of rows, each row is an associative array wherein the column names are used as the array keys.
+INSERT
+- For tables with an AUTO_INCREMENT id column, the new row's id is returned.
+- Otherwise it returns true when successful.
+UPDATE
+- The number of rows updated.
+DELETE
+- The number of rows deleted.
+- All query failures return false, and the error details are saved in the errors array.
+
+The errors array holds one entry for each error encountered (usually only one, but not necessarily so). Each error includes three properties:
+
+{string} operation - The operation in which the error occurred.
+{number} errno     - The mysqli error number.
+{string} error     - The mysqli error description.
+
+
+## SQL Builder
+
+Easily compile an SQL string compatible with parameterized queries.
+
+Function Structure:
+<pre>
+string mysqlez::compile_sql( array $params );
+</pre>
+
+Example Usage:
+<pre>
+$propertiesOfFruit = array( 'name', 'family', 'color', 'calories', 'fiber' );
+
+$sqlString = $db->compile_sql( array(
+  'op'      => "INSERT",
+  'table'   => "fruit",
+  'columns` => $propertiesOfFruit,
+  'update'  => true
+));
+
+/*
+Value of $sqlString (reformatted for ease of human reading)
+INSERT INTO `fruit`
+(
+  `name`,
+  `family`,
+  `color`,
+  `calories`,
+  `fiber`
+)
+VALUES (?,?,?,?,?)
+ON DUPLICATE KEY UPDATE
+  `name`=VALUES(`name`),
+  `family`=VALUES(`family`),
+  `color`=VALUES(`color`),
+  `calories`=VALUES(`calories`),
+  `fiber`=VALUES(`fiber`)
+*/
+</pre>
+
 
 ## Bulk Data Insert
 
@@ -296,5 +355,10 @@ included in the page-length example in four lines?
 require_once('mysqlez.php');
 $db = new mysqlez();
 $result = $db->parameterized_query('SELECT * FROM `user` WHERE `id`=?', 'foo');
+<<<<<<< HEAD
 if ( $db->errors ) { error_handler(); }
 </pre>
+=======
+$errors = $db->errors;
+</pre>
+>>>>>>> origin/master
