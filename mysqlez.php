@@ -4,6 +4,8 @@
 
 public $errors = array();
 
+protected $safeFunctions = array("CURRENT_TIMESTAMP()", "NOW()");
+
 /**
  * Connect to a database and use functions to SELECT, UPDATE and INSERT data.
  * @param {string} $dbHost - Database host address.
@@ -228,6 +230,85 @@ public function table_fields ( $table ) {
     }
   }
   return $fields;
+}
+
+/**
+ * UPDATE data in the database.
+ * @param {string}       $table   - The table to insert into.
+ * @param {array|string} $columns - The list of columns to insert into.
+ * @param {array}        $data    - Two-dementional array of rows and the values for each row.
+ * @param {bool}         $update  - Whether to update preexisting rows or not.
+ * @return integer The number of affected rows.
+ */
+public function bulk_insert ( $table, $columns, $data, $update=false ) {
+
+  # Set the table. #
+  if (! ( is_string($table) && $table ) ) {
+    $this->errors[] = "You must provide a table to insert into.";
+    return false;
+  }
+  $sql = array("INSERT INTO `$table`");
+
+  # Set the columns. #
+  if (! $columns ) {
+    $this->errors[] = "You must provide a list of columns to insert into.";
+    return false;
+  }
+  if (! is_array($columns)) {
+    if (strpos($columns, ',')) {
+      $columns = explode(',', $columns);
+    } else {
+      $columns = array($columns);
+    }
+  }
+  foreach ($columns as &$column) {
+    $column = ($column === '*') ? '*' : "`$column`";
+  }
+  $sql[] = "(" . implode(',', $columns) . ")";
+
+  # Set the data. #
+  if (! ( $data && is_array($data) && isset($data[0]) && is_array($data[0]) ) ) {
+    $this->error = "You must provide a two-dimentional array of data to insert into the table.";
+    return false;
+  }
+  foreach ($data as &$row) {
+    $row = "(" . $this->_list($row) . ")";
+  }
+  $sql[] = "VALUES " . implode(',', $data);
+
+  # Optionally, update preexisting rows. #
+  if ( $update ) {
+    $sql[] = "ON DUPLICATE KEY UPDATE " . self::_update_values( $columns );
+  }
+
+  # Execute the query. #
+  $sql = implode(' ', $sql);
+  if ( $this->query($sql) ) {
+    return $this->affected_rows;
+  }
+  return false;
+}
+
+protected function _list ($data) {
+  $list = array();
+  foreach ($data as &$value) {
+    if ($value === null) {
+      $list[] = "NULL";
+    } elseif (in_array($value, $this->safeFunctions)) {
+      $list[] = "$value";
+    } else {
+      $value = parent::real_escape_string($value);
+      $list[] = "'$value'";
+    }
+  }
+  return implode(',', $list);
+}
+
+protected function _update_values ($columns) {
+  foreach ( $columns as &$col ) {
+    $col = "$col=VALUES($col)";
+  }
+  return implode(',', $columns);
 }
 
 } ?>

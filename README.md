@@ -1,9 +1,16 @@
 # mysqlez
 
 The mysqlez class extends the mysqli class in PHP versions 5 and 7. The primary
-benefit to using mysqlez is its added parameterized_query method, which uses
-prepared SQL statements, parameterized input, and convenient, context-aware
-return types.
+benefit to using mysqlez is its parameterized_query method, which uses prepared
+SQL statements, parameterized input, and convenient, context-aware return
+types.
+
+The second convenience method is bulk_insert, which is designed to greatly
+improve the speed of large-volume data insertion. A large number of single-row
+inserts can take a very long time, especially if your SQL server is not local.
+The bulk_insert method takes the an array of arrays (rows of column data),
+along with the table and column names, builds and executes one large insert
+statement.
 
 ## Setup
 
@@ -44,7 +51,7 @@ name = myDatabase
 
 Function Structure:
 <pre>
-mixed mysqlez::parameterized_query( string $sql, [ array $params ] );
+mixed mysqlez::parameterized_query( string $sql, [ array $params ] )
 </pre>
 
 Example Usage:
@@ -72,7 +79,24 @@ The errors array holds one entry for each error encountered (usually only one, b
 {string} error     - The mysqli error description.
 
 
-## Examples
+## Bulk Data Insert
+
+Function Structure:
+<pre>
+mixed mysqlez::bulk_insert( string $table, array|string $columns, array $data, [ bool $update ] )
+</pre>
+
+Example Usage:
+<pre>
+$numAffectedRows = $db->bulk_insert( 'fruit', array('name','color'), $fruit );
+$numAffectedRows = $db->bulk_insert( 'fruit', 'name,color', $fruit, TRUE );
+</pre>
+
+Returns the SQL-style number of affected rows on success. (That's +1 per insert and +2 per update.)
+Returns FALSE on failure. (SQL errors are save in $db->errno and $db->error.)
+
+
+## More Examples
 
 SELECT
 <pre>
@@ -87,14 +111,11 @@ echo "Found " . count( $fruit ) . " fruit with the color $color.\n";
 INSERT
 <pre>
 $my_fruit = array(
-  'name'  => 'apple',
-  'color' => 'red'
+  $_POST['fruit-name'],
+  $_POST['fruit-color']
 );
 
-$id = $db->parameterized_query(
-  'INSERT INTO `fruit` (`name`,`color`) VALUES (?,?)',
-  $my_fruit
-);
+$id = $db->parameterized_query( 'INSERT INTO `fruit` (`name`,`color`) VALUES (?,?)', $my_fruit);
 
 if ( $id ) {
   echo "Added your fruit with ID number $id.\n";
@@ -110,14 +131,11 @@ if ( $id ) {
 UPDATE
 <pre>
 $my_fruit = array(
-  'name'  => 'apple',
-  'color' => 'green'
+  $_POST['fruit-color'],
+  $_POST['fruit-name']
 );
 
-$effect = $db->parameterized_query(
-  'UPDATE `fruit` SET `color`=? WHERE `name`=?',
-  array( $my_fruit['color'], $my_fruit['name'] )
-);
+$effect = $db->parameterized_query( 'UPDATE `fruit` SET `color`=? WHERE `name`=?', $my_fruit );
 
 if ( $effect ) {
   echo "Fruit updated.\n";
@@ -128,11 +146,9 @@ if ( $effect ) {
 
 DELETE
 <pre>
-$dont_like = 'green';
-
 $effect = $db->parameterized_query(
   'DELETE FROM `fruit` WHERE `color`=?',
-  $dont_like
+  $_GET['disliked-color']
 );
 
 if ( $effect ) {
@@ -147,10 +163,54 @@ if ( $effect ) {
 }
 </pre>
 
+Bulk INSERT
+<pre>
+// Setup //
+$tableName = 'fruit';
+$columns = array('name','color','family','description');
+$totalAffectedRows = 0;
+$errors = array();
+$data = array();
 
-## Comparison with MySQL
+// Open large data file. //
+if (! $fileHandle = fopen("Every Kind of Fruit in the World.csv", "r") ) {
+  exit("Failed to open CSV for reading.");
+}
+// Read CSV data. //
+while ( $row = fgetcsv( $fileHandle ) ) {
+  $data[] = $row;
 
-For comparison, here's the equivalent code using the PHP standard mysqli:
+  // Send data to database in 1000-row blocks. //
+  if ( count($data) >= 1000 ) {
+    if ( $affectedRows = $db->bulk_insert( $tableName, $columns, $data ) ) {
+      $totalAffectedRows += $affectedRows;
+    } else {
+      $errors[] = $db->error;
+    }
+    array_splice( $data, 0 );
+  }
+}
+
+// Send any remaining data. //
+if ( count($data) ) {
+  if ( $affectedRows = $db->bulk_insert( $tableName, $columns, $data ) ) {
+    $totalAffectedRows += $affectedRows;
+  } else {
+    $errors[] = $db->error;
+  }
+}
+
+// Report results. //
+echo "Done. $totalAffectedRows total SQL updates. " . count($errors) . " errors.\n";
+foreach ( $errors as $thisError ) {
+  echo "$thisError\n";
+}
+</pre>
+
+
+## MySQLi vs. MySQLez
+
+For comparison, here's comparable code using the PHP standard mysqli:
 <pre>
 if (! $db = new mysqli( $dbHost, $dbUser, $dbPass, $dbName ) {
   # Handle connection errors here...
@@ -204,12 +264,12 @@ return $data;
 Note that the standard mysqli requires each result column to be bound to its
 own variable reference. This is very inconvenient should you want to select all
 the columns in a table with the '*' character. The code above is written to
-adapt to any number of result columns. The same technique is included in the
-mysqlez extension.
+adapt to any number of result columns, the same technique used in the mysqlez
+extension.
 
 If for some strange reason you didn't want to do any error checking, and always
 selected a known number of columns, you could get away with as little code as
-this:
+this in the standard mysqli:
 <pre>
 $sql = 'SELECT `every`,`desired`,`column`,`name` FROM `user` WHERE `id`=?';
 $id  = 'foo';
@@ -230,10 +290,11 @@ while ($stmt->fetch()) {
 return $data;
 </pre>
 
-But why give up flexibility and error checking when you could do everything included in the page-length example in four lines?
+But why give up flexibility and error checking when you could do everything
+included in the page-length example in four lines?
 <pre>
 require_once('mysqlez.php');
 $db = new mysqlez();
 $result = $db->parameterized_query('SELECT * FROM `user` WHERE `id`=?', 'foo');
-$errors = $db->errors;
+if ( $db->errors ) { error_handler(); }
 </pre>
