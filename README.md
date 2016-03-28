@@ -57,7 +57,7 @@ mixed mysqlez::parameterized_query( string $sql, [ array $params ] )
 Example Usage:
 <pre>
 $result = $db->parameterized_query('SELECT * FROM `user` WHERE `id`=?', 'foo');
-$errors = $db->errors;
+if ( $db->errors ) { error_handler(); }
 </pre>
 
 Return values vary depending on the successful query's type.
@@ -116,9 +116,10 @@ $sqlString = $db->compile_sql( array(
   'columns` => $propertiesOfFruit,
   'update'  => true
 ));
+</pre>
 
-/*
 Value of $sqlString (reformatted for ease of human reading)
+<pre>
 INSERT INTO `fruit`
 (
   `name`,
@@ -134,7 +135,6 @@ ON DUPLICATE KEY UPDATE
   `color`=VALUES(`color`),
   `calories`=VALUES(`calories`),
   `fiber`=VALUES(`fiber`)
-*/
 </pre>
 
 
@@ -355,10 +355,3 @@ included in the page-length example in four lines?
 require_once('mysqlez.php');
 $db = new mysqlez();
 $result = $db->parameterized_query('SELECT * FROM `user` WHERE `id`=?', 'foo');
-<<<<<<< HEAD
-if ( $db->errors ) { error_handler(); }
-</pre>
-=======
-$errors = $db->errors;
-</pre>
->>>>>>> origin/master
