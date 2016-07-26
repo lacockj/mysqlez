@@ -67,6 +67,7 @@ public function parameterized_query ( $sql, $params=null, $types=null ) {
     );
     return false;
   }
+  $sql = trim( $sql );
   if (! $stmt = parent::prepare($sql) ) {
     $this->errors[] = array(
       'operation' => 'mysqli prepare',
@@ -104,7 +105,7 @@ public function parameterized_query ( $sql, $params=null, $types=null ) {
   }
 
   # Return results based on query type. #
-  $verb = strtoupper( preg_replace( '/^(\w+).*$/', '$1', $sql ) );
+  $verb = strtoupper( preg_replace( '/^(\w+).*$/s', '$1', $sql ) );
   if ( $verb === "SELECT" || $verb === "DESCRIBE" ) {
 
     # Identify the columns in the SELECT result set. #
